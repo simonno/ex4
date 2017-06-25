@@ -9,18 +9,20 @@
 #include <stdlib.h>
 #include <sys/shm.h>
 #include <pthread.h>
+#include <fcntl.h>
 
 #define SHM_SIZE 1024  /* make it a 1K shared memory segment */
-#define FTOK_ERROR "ftok error"
-#define SHMGET_ERROR "shmget error"
-#define SENGET_FLAGS (0644 | IPC_CREAT)
-#define SHMAT_ERROR "shmat error - error in attaching to the shared memory."
-#define THREADS_CAPCITIY 5
+#define FTOK_ERROR "ftok error.\n"
+#define SHMGET_ERROR "shmget error.\n"
+#define SHMAT_ERROR "shmat error - error in attaching to the shared memory.\n"
 #define PTHREAD_CREATE_ERROR "pthread_create error.\n"
+#define OPEN_ERROR "open new file error.\n"
+#define SENGET_FLAGS (0644 | IPC_CREAT)
+#define THREAD_POOL_CAPACITY 5
 // A linked list (LL) node to store a queue entry
 typedef struct QNodeStruct QNode;
 struct QNodeStruct{
-    int value;
+    char value;
     QNode *next;
 };
 
@@ -30,28 +32,30 @@ typedef struct {
     QNode *front, *rear;
 } Queue;
 
-pthread_t tid[10];
+pthread_t tid[THREAD_POOL_CAPACITY];
 char* data;
+Queue* jobQueue;
+int internal_count;
 
-void *threadsFunction(void *);
-QNode *deQueue(Queue *q);
-void enQueue(Queue *q, int value);
-Queue *createQueue();
-QNode* newNode(int k);
+void* threadsFunction(void * args);
+QNode* deQueue(Queue *q);
+void enQueue(Queue *q, char value);
+Queue* createQueue();
+QNode* newNode(char value);
 
 int main(int argc, char *argv[]) {
-    int shmid, i, err;
+    int shmid, i, err, fd;
     key_t key;
 
 
-
-    for(i = 0; i <  THREADS_CAPCITIY; i++) {
-        err = pthread_create(&(tid[i]), NULL, &threadsFunction, NULL);
-        if (err != 0)
-            perror(PTHREAD_CREATE_ERROR);
-        i++;
+    /* create a file with read and write permissions */
+    fd = open("208388850.txt", O_CREAT | O_RDWR, 0666);
+    if (fd < 0) {
+        perror(OPEN_ERROR);
+        exit(EXIT_FAILURE);
     }
-        /* create a value for sheared memory */
+
+    /* create a value for sheared memory */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
     key = ftok("208388850.txt", 'N');
     if (key == (key_t) -1) {
@@ -73,6 +77,16 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* create the threads */
+    for(i = 0; i <  THREAD_POOL_CAPACITY; i++) {
+        err = pthread_create(&(tid[i]), NULL, &threadsFunction, NULL);
+        if (err != 0)
+            perror(PTHREAD_CREATE_ERROR);
+    }
+
+    /*  create a job queue */
+    jobQueue = createQueue();
+
 }
 
 void *threadsFunction(void * args) {
@@ -83,9 +97,9 @@ void *threadsFunction(void * args) {
 
 
 // A utility function to create a new linked list node.
-QNode* newNode(int k) {
+QNode* newNode(char value) {
     QNode *temp = (QNode*)malloc(sizeof(QNode));
-    temp->value = k;
+    temp->value = value;
     temp->next = NULL;
     return temp;
 }
@@ -98,7 +112,7 @@ Queue *createQueue() {
 }
 
 // The function to add a value k to q
-void enQueue(Queue *q, int value) {
+void enQueue(Queue *q, char value) {
     // Create a new LL node
     QNode *temp = newNode(value);
 
