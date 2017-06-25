@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     char* data;
     key_t key;
 
-    /* create a key for sheared memory */
+    /* create a value for sheared memory */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
     key = ftok("208388850.txt", 'N');
     if (key == (key_t) -1) {
