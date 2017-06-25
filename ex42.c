@@ -2,31 +2,36 @@
 * Student name: Noam Simon      *
 * Student ID: 208388850         *
 * Course Exercise Group: 04     *
-* Exercise name: Exercise 41    *
+* Exercise name: Exercise 42    *
 ********************************/
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/shm.h>
-
+#include <pthread.h>
 
 #define SHM_SIZE 1024  /* make it a 1K shared memory segment */
 #define FTOK_ERROR "ftok error"
 #define SHMGET_ERROR "shmget error"
 #define SENGET_FLAGS (0644 | IPC_CREAT)
 #define SHMAT_ERROR "shmat error - error in attaching to the shared memory."
+#define THREADS_CAPCITIY 5
+#define PTHREAD_CREATE_ERROR "pthread_create error.\n"
 
-char toLower(char chr);
-
-
+pthread_t tid[10];
+char* data;
 
 int main(int argc, char *argv[]) {
-    char requestCode;
-    int shmid;
-    char* data;
+    int shmid, i, err;
     key_t key;
 
-    /* create a key for sheared memory */
+    for(i = 0; i <  THREADS_CAPCITIY; i++) {
+        err = pthread_create(&(tid[i]), NULL, &doSomeThing, NULL);
+        if (err != 0)
+            perror(PTHREAD_CREATE_ERROR);
+        i++;
+    }
+        /* create a key for sheared memory */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
     key = ftok("208388850.txt", 'N');
     if (key == (key_t) -1) {
@@ -48,23 +53,4 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-
-    while (1) {
-        printf("Please enter request code\n");
-        scanf("%c", &requestCode);
-
-        if  (requestCode == 'i' && requestCode == 'I') {
-            break;
-        }
-        requestCode = toLower(requestCode);
-
-        *data = requestCode;
-    }
-}
-
-char toLower(char chr) {
-    if (chr >='A' && chr<='Z') {
-        return (char) (chr + 32);
-    }
-    return chr;
 }

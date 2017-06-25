@@ -3,5 +3,5 @@ project(ex4)
 
 set(CMAKE_C_STANDARD 99)
 
-set(SOURCE_FILES ex41.c)
+set(SOURCE_FILES ex41.c ex42.c)
 add_executable(ex4 ${SOURCE_FILES})
