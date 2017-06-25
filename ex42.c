@@ -19,6 +19,8 @@
 #define OPEN_ERROR "open new file error.\n"
 #define SENGET_FLAGS (0644 | IPC_CREAT)
 #define THREAD_POOL_CAPACITY 5
+#define PTHREAD_MUTEX_INIT_ERROR "mutex init failed.\n"
+#define NANOSLEEP_ERROR "nanosleep system call failed \n"
 // A linked list (LL) node to store a queue entry
 typedef struct QNodeStruct QNode;
 struct QNodeStruct{
@@ -36,6 +38,8 @@ pthread_t tid[THREAD_POOL_CAPACITY];
 char* data;
 Queue* jobQueue;
 int internal_count;
+pthread_mutex_t jobQueueLock;
+pthread_mutex_t counterLock;
 
 void* threadsFunction(void * args);
 QNode* deQueue(Queue *q);
@@ -77,6 +81,18 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    if (pthread_mutex_init(&jobQueueLock, NULL) != 0)
+    {
+        printf(PTHREAD_MUTEX_INIT_ERROR);
+        exit(EXIT_FAILURE);
+    }
+
+    if (pthread_mutex_init(&counterLock, NULL) != 0)
+    {
+        printf(PTHREAD_MUTEX_INIT_ERROR);
+        exit(EXIT_FAILURE);
+    }
+
     /* create the threads */
     for(i = 0; i <  THREAD_POOL_CAPACITY; i++) {
         err = pthread_create(&(tid[i]), NULL, &threadsFunction, NULL);
@@ -90,7 +106,49 @@ int main(int argc, char *argv[]) {
 }
 
 void *threadsFunction(void * args) {
-    return NULL;
+    pthread_mutex_lock(&jobQueueLock);
+    QNode* job = deQueue(jobQueue);
+    pthread_mutex_unlock(&jobQueueLock);
+
+    int x = (rand() % 101) + 10;
+    struct timespec tim, tim2;
+    tim.tv_sec = 0;
+    tim.tv_nsec = x;
+
+    if(nanosleep(&tim , &tim2) < 0 ) {
+        perror(NANOSLEEP_ERROR);
+        exit(EXIT_FAILURE);
+    }
+
+    int add;
+    switch (job->value) {
+        case 'a':
+            add = 1;
+            break;
+        case 'b':
+            add = 2;
+            break;
+        case 'c':
+            add = 3;
+            break;
+        case 'd':
+            add = 4;
+            break;
+        case 'e':
+            add = 5;
+            break;
+        case 'f':
+            break;
+        default:
+            add = 0;
+            break;
+    }
+
+    pthread_mutex_lock(&jobQueueLock);
+    internal_count += add;
+    pthread_mutex_unlock(&jobQueueLock);
+
+
 }
 
 
