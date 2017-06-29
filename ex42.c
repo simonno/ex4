@@ -8,19 +8,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 #include <pthread.h>
 #include <fcntl.h>
+#include <unistd.h>
 
-#define SHM_SIZE 1024  /* make it a 1K shared memory segment */
+#define SHM_SIZE 256
+#define SENGET_FLAGS (0644 | IPC_CREAT)
 #define FTOK_ERROR "ftok error.\n"
 #define SHMGET_ERROR "shmget error.\n"
 #define SHMAT_ERROR "shmat error - error in attaching to the shared memory.\n"
 #define PTHREAD_CREATE_ERROR "pthread_create error.\n"
 #define OPEN_ERROR "open new file error.\n"
-#define SENGET_FLAGS (0644 | IPC_CREAT)
 #define THREAD_POOL_CAPACITY 5
 #define PTHREAD_MUTEX_INIT_ERROR "mutex init failed.\n"
 #define NANOSLEEP_ERROR "nanosleep system call failed \n"
+#define WRITE_ERROR "writing to the file failed.\n"
+#define SEMGET_ERROR "semget error.\n"
+
 // A linked list (LL) node to store a queue entry
 typedef struct QNodeStruct QNode;
 struct QNodeStruct{
@@ -34,22 +39,38 @@ typedef struct {
     QNode *front, *rear;
 } Queue;
 
+union semun {
+    int val;
+    struct semid_ds *buf;
+    ushort *array;
+};
+
 pthread_t tid[THREAD_POOL_CAPACITY];
 char* data;
 Queue* jobQueue;
 int internal_count;
 pthread_mutex_t jobQueueLock;
+int fd;
+int shmid, semidRead, semidWrite;
+union semun semarg;
 pthread_mutex_t counterLock;
 
-void* threadsFunction(void * args);
+void addJob(char value);
+void* threadPool(void * args);
+void threadsFunction(char mission);
 QNode* deQueue(Queue *q);
 void enQueue(Queue *q, char value);
 Queue* createQueue();
 QNode* newNode(char value);
 
+void run();
+
 int main(int argc, char *argv[]) {
-    int shmid, i, err, fd;
+    int i, err;
     key_t key;
+
+    /*  create a job queue */
+    jobQueue = createQueue();
 
 
     /* create a file with read and write permissions */
@@ -81,47 +102,87 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (pthread_mutex_init(&jobQueueLock, NULL) != 0)
-    {
+    semidRead = semget(key, 1, IPC_CREAT | IPC_EXCL | 0666);
+    semidWrite = semget(key, 1, IPC_CREAT | IPC_EXCL | 0666);
+    if (semidRead == -1 ||  semidWrite == -1) {
+        perror(SEMGET_ERROR);
+        exit(EXIT_FAILURE);
+    }
+    semarg.val = 0;
+    semctl(semidRead, 0, IPC_SET, semarg);
+    semarg.val = 0;
+    semctl(semidWrite, 0, IPC_SET, semarg);
+
+
+
+    if (pthread_mutex_init(&jobQueueLock, NULL) != 0) {
         printf(PTHREAD_MUTEX_INIT_ERROR);
         exit(EXIT_FAILURE);
     }
 
-    if (pthread_mutex_init(&counterLock, NULL) != 0)
-    {
+
+    if (pthread_mutex_init(&counterLock, NULL) != 0) {
         printf(PTHREAD_MUTEX_INIT_ERROR);
         exit(EXIT_FAILURE);
     }
 
     /* create the threads */
     for(i = 0; i <  THREAD_POOL_CAPACITY; i++) {
-        err = pthread_create(&(tid[i]), NULL, &threadsFunction, NULL);
+        err = pthread_create(&(tid[i]), NULL, &threadPool, NULL);
         if (err != 0)
             perror(PTHREAD_CREATE_ERROR);
     }
 
-    /*  create a job queue */
-    jobQueue = createQueue();
+    run();
 
 }
 
-void *threadsFunction(void * args) {
+void run() {
+    struct sembuf sb;
+    char job;
+    sb.sem_num = 0;
+    sb.sem_flg = SEM_UNDO;
+    while (1) {
+        sb.sem_op = -1;
+        semop(semidRead, &sb, 1);
+        job = *data;
+        sb.sem_op = 1;
+        semop(semidWrite, &sb, 1);
+        addJob(job);
+    }
+}
+
+void addJob(char value){
     pthread_mutex_lock(&jobQueueLock);
-    QNode* job = deQueue(jobQueue);
+    enQueue(jobQueue, value);
     pthread_mutex_unlock(&jobQueueLock);
+}
+
+void* threadPool(void * args) {
+    while (1) {
+        pthread_mutex_lock(&jobQueueLock);
+        QNode* job = deQueue(jobQueue);
+        pthread_mutex_unlock(&jobQueueLock);
+        threadsFunction(job->value);
+    }
+}
+
+void threadsFunction(char mission) {
+    char line[256];
+    int tid;
 
     int x = (rand() % 101) + 10;
     struct timespec tim, tim2;
     tim.tv_sec = 0;
     tim.tv_nsec = x;
 
-    if(nanosleep(&tim , &tim2) < 0 ) {
+    if (nanosleep(&tim, &tim2) < 0) {
         perror(NANOSLEEP_ERROR);
         exit(EXIT_FAILURE);
     }
 
-    int add;
-    switch (job->value) {
+    int add = 0;
+    switch (mission) {
         case 'a':
             add = 1;
             break;
@@ -138,7 +199,13 @@ void *threadsFunction(void * args) {
             add = 5;
             break;
         case 'f':
-            break;
+            tid = (int) pthread_self();
+            sprintf(line, "thread identifier is %d and internal_count is %d", tid, internal_count);
+            if (write(fd, line, sizeof(line)) < 0) {
+                perror(WRITE_ERROR);
+                exit(EXIT_FAILURE);
+            }
+            return;
         default:
             add = 0;
             break;
@@ -147,8 +214,6 @@ void *threadsFunction(void * args) {
     pthread_mutex_lock(&jobQueueLock);
     internal_count += add;
     pthread_mutex_unlock(&jobQueueLock);
-
-
 }
 
 

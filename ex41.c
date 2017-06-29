@@ -8,23 +8,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 
 
-#define SHM_SIZE 1024  /* make it a 1K shared memory segment */
+#define SHM_SIZE 256
+#define SENGET_FLAGS (0644 | IPC_CREAT)
 #define FTOK_ERROR "ftok error"
 #define SHMGET_ERROR "shmget error"
-#define SENGET_FLAGS (0644 | IPC_CREAT)
 #define SHMAT_ERROR "shmat error - error in attaching to the shared memory."
+#define SEMGET_ERROR "semget error.\n"
+
 
 char toLower(char chr);
 
-
+int semidRead, semidWrite;
+union semun {
+    int val;
+    struct semid_ds *buf;
+    ushort *array;
+};
+union semun semarg;
 
 int main(int argc, char *argv[]) {
     char requestCode;
     int shmid;
     char* data;
     key_t key;
+    struct sembuf sb;
 
     /* create a value for sheared memory */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
@@ -48,8 +58,21 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    semidRead = semget(key, 0, 0666);
+    semidWrite = semget(key, 0, 0666);
+    if (semidRead == -1 ||  semidWrite == -1) {
+        perror(SEMGET_ERROR);
+        exit(EXIT_FAILURE);
+    }
 
+//    semarg.val = 0;
+//    semctl(semidRead, 0, IPC_SET, semarg);
+//    semarg.val = 0;
+//    semctl(semidWrite, 0, IPC_SET, semarg);
+    sb.sem_num = 0;
+    sb.sem_flg = SEM_UNDO;
     while (1) {
+
         printf("Please enter request code\n");
         scanf("%c", &requestCode);
 
@@ -58,7 +81,11 @@ int main(int argc, char *argv[]) {
         }
         requestCode = toLower(requestCode);
 
+        sb.sem_op = -1;
+        semop(semidWrite, &sb, 1);
         *data = requestCode;
+        sb.sem_op = 1;
+        semop(semidRead, &sb, 1);
     }
 }
 
