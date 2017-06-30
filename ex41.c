@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 
     /* create a value for sheared memory */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("208388850.txt", 'N');
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'N');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
@@ -58,9 +58,28 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* create a value for semaphor */
+    // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'n');
+    if (key == (key_t) -1) {
+        perror(FTOK_ERROR);
+        exit(EXIT_FAILURE);
+    }
     semidRead = semget(key, 0, 0666);
+    if (semidRead == -1) {
+        perror(SEMGET_ERROR);
+        exit(EXIT_FAILURE);
+    }
+
+    /* create a value for semaphor */
+    // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", '8');
+    if (key == (key_t) -1) {
+        perror(FTOK_ERROR);
+        exit(EXIT_FAILURE);
+    }
     semidWrite = semget(key, 0, 0666);
-    if (semidRead == -1 ||  semidWrite == -1) {
+    if (semidWrite == -1) {
         perror(SEMGET_ERROR);
         exit(EXIT_FAILURE);
     }
@@ -71,12 +90,13 @@ int main(int argc, char *argv[]) {
 //    semctl(semidWrite, 0, IPC_SET, semarg);
     sb.sem_num = 0;
     sb.sem_flg = SEM_UNDO;
+    char dummay;
     while (1) {
 
         printf("Please enter request code\n");
-        scanf("%c", &requestCode);
+        scanf("%c%c", &requestCode, &dummay);
 
-        if  (requestCode == 'i' && requestCode == 'I') {
+        if  (requestCode == 'i' || requestCode == 'I') {
             break;
         }
         requestCode = toLower(requestCode);

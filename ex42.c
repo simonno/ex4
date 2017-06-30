@@ -25,6 +25,7 @@
 #define NANOSLEEP_ERROR "nanosleep system call failed \n"
 #define WRITE_ERROR "writing to the file failed.\n"
 #define SEMGET_ERROR "semget error.\n"
+#define PTHREAD_CANCEL_ERROR "pthread_cancel error.\n"
 
 // A linked list (LL) node to store a queue entry
 typedef struct QNodeStruct QNode;
@@ -55,7 +56,8 @@ int shmid, semidRead, semidWrite;
 union semun semarg;
 pthread_mutex_t counterLock;
 
-void addJob(char value);
+void onExit(void);
+        void addJob(char value);
 void* threadPool(void * args);
 void threadsFunction(char mission);
 QNode* deQueue(Queue *q);
@@ -65,9 +67,17 @@ QNode* newNode(char value);
 
 void run();
 
+void g();
+
+void h();
+
+void printCountToFile();
+
 int main(int argc, char *argv[]) {
     int i, err;
     key_t key;
+
+    internal_count = 0;
 
     /*  create a job queue */
     jobQueue = createQueue();
@@ -82,7 +92,7 @@ int main(int argc, char *argv[]) {
 
     /* create a value for sheared memory */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("208388850.txt", 'N');
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'N');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
@@ -101,16 +111,33 @@ int main(int argc, char *argv[]) {
         perror(SHMAT_ERROR);
         exit(EXIT_FAILURE);
     }
-
+    /* create a value for semaphor */
+    // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'n');
+    if (key == (key_t) -1) {
+        perror(FTOK_ERROR);
+        exit(EXIT_FAILURE);
+    }
     semidRead = semget(key, 1, IPC_CREAT | IPC_EXCL | 0666);
+    if (semidRead == -1) {
+        perror(SEMGET_ERROR);
+        exit(EXIT_FAILURE);
+    }
+    /* create a value for semaphor */
+    // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", '8');
+    if (key == (key_t) -1) {
+        perror(FTOK_ERROR);
+        exit(EXIT_FAILURE);
+    }
     semidWrite = semget(key, 1, IPC_CREAT | IPC_EXCL | 0666);
-    if (semidRead == -1 ||  semidWrite == -1) {
+    if (semidWrite == -1) {
         perror(SEMGET_ERROR);
         exit(EXIT_FAILURE);
     }
     semarg.val = 0;
     semctl(semidRead, 0, IPC_SET, semarg);
-    semarg.val = 0;
+    semarg.val = 1;
     semctl(semidWrite, 0, IPC_SET, semarg);
 
 
@@ -126,11 +153,16 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    atexit(onExit);
+
     /* create the threads */
     for(i = 0; i <  THREAD_POOL_CAPACITY; i++) {
         err = pthread_create(&(tid[i]), NULL, &threadPool, NULL);
-        if (err != 0)
+        if (err != 0) {
             perror(PTHREAD_CREATE_ERROR);
+            exit(EXIT_FAILURE);
+        }
+
     }
 
     run();
@@ -148,8 +180,34 @@ void run() {
         job = *data;
         sb.sem_op = 1;
         semop(semidWrite, &sb, 1);
+        if(job == 'g' || job == 'h') {
+            break;
+        }
         addJob(job);
     }
+    if (job == 'g') {
+        g();
+    } else {
+        h();
+    }
+}
+
+void h() {
+
+}
+
+void g() {
+    int i, err;
+    // cancel the threads operation.
+    for(i = 0; i <  THREAD_POOL_CAPACITY; i++) {
+        err = pthread_cancel(tid[i]);
+        if (err != 0) {
+            perror(PTHREAD_CANCEL_ERROR);
+            exit(EXIT_FAILURE);
+        }
+    }
+    printCountToFile();
+    exit(EXIT_SUCCESS);
 }
 
 void addJob(char value){
@@ -163,13 +221,15 @@ void* threadPool(void * args) {
         pthread_mutex_lock(&jobQueueLock);
         QNode* job = deQueue(jobQueue);
         pthread_mutex_unlock(&jobQueueLock);
-        threadsFunction(job->value);
+        if (job != NULL) {
+            threadsFunction(job->value);
+        }
+        sleep(5);
     }
+
 }
 
 void threadsFunction(char mission) {
-    char line[256];
-    int tid;
 
     int x = (rand() % 101) + 10;
     struct timespec tim, tim2;
@@ -199,12 +259,7 @@ void threadsFunction(char mission) {
             add = 5;
             break;
         case 'f':
-            tid = (int) pthread_self();
-            sprintf(line, "thread identifier is %d and internal_count is %d", tid, internal_count);
-            if (write(fd, line, sizeof(line)) < 0) {
-                perror(WRITE_ERROR);
-                exit(EXIT_FAILURE);
-            }
+            printCountToFile();
             return;
         default:
             add = 0;
@@ -216,7 +271,16 @@ void threadsFunction(char mission) {
     pthread_mutex_unlock(&jobQueueLock);
 }
 
-
+void printCountToFile() {
+    char line[256];
+    int tid;
+    tid = (int) pthread_self();
+    sprintf(line, "thread identifier is %d and internal_count is %d", tid, internal_count);
+    if (write(fd, line, sizeof(line)) < 0) {
+        perror(WRITE_ERROR);
+        exit(EXIT_FAILURE);
+    }
+}
 
 
 // A utility function to create a new linked list node.
@@ -265,4 +329,8 @@ QNode *deQueue(Queue *q) {
     if (q->front == NULL)
         q->rear = NULL;
     return temp;
+}
+
+void onExit(void) {
+    puts ("Exit function 1.");
 }
