@@ -26,6 +26,10 @@
 #define WRITE_ERROR "writing to the file failed.\n"
 #define SEMGET_ERROR "semget error.\n"
 #define PTHREAD_CANCEL_ERROR "pthread_cancel error.\n"
+#define MUTEX_DESTROY_ERROR "mutex destroy failed.\n"
+#define SEMAPHORE_REMOVE_ERROR "error - remove semaphore \n."
+#define SHMCTL_ERROR "shmctl error"
+
 
 // A linked list (LL) node to store a queue entry
 typedef struct QNodeStruct QNode;
@@ -57,7 +61,7 @@ union semun semarg;
 pthread_mutex_t counterLock;
 
 void onExit(void);
-        void addJob(char value);
+void addJob(char value);
 void* threadPool(void * args);
 void threadsFunction(char mission);
 QNode* deQueue(Queue *q);
@@ -71,7 +75,8 @@ void g();
 
 void h();
 
-void printCountToFile();
+void printCountToFile(int i);
+void clearQueue(Queue *q) ;
 
 int main(int argc, char *argv[]) {
     int i, err;
@@ -153,8 +158,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    atexit(onExit);
-
     /* create the threads */
     for(i = 0; i <  THREAD_POOL_CAPACITY; i++) {
         err = pthread_create(&(tid[i]), NULL, &threadPool, NULL);
@@ -193,7 +196,20 @@ void run() {
 }
 
 void h() {
-
+    int i, err;
+    // cancel the threads operation.
+    for(i = 0; i <  THREAD_POOL_CAPACITY; i++) {
+        err = pthread_join(tid[i], NULL);
+        if (err != 0) {
+            perror(PTHREAD_CANCEL_ERROR);
+            exit(EXIT_FAILURE);
+        }
+        printCountToFile((int) tid[i]);
+    }
+    int mainTid = (int) pthread_self();
+    printCountToFile(mainTid);
+    onExit();
+    exit(EXIT_SUCCESS);
 }
 
 void g() {
@@ -206,7 +222,9 @@ void g() {
             exit(EXIT_FAILURE);
         }
     }
-    printCountToFile();
+    int mainTid = (int) pthread_self();
+    printCountToFile(mainTid);
+    onExit();
     exit(EXIT_SUCCESS);
 }
 
@@ -226,11 +244,10 @@ void* threadPool(void * args) {
         }
         sleep(5);
     }
-
 }
 
 void threadsFunction(char mission) {
-
+    int tid;
     int x = (rand() % 101) + 10;
     struct timespec tim, tim2;
     tim.tv_sec = 0;
@@ -259,7 +276,8 @@ void threadsFunction(char mission) {
             add = 5;
             break;
         case 'f':
-            printCountToFile();
+            tid = (int) pthread_self();
+            printCountToFile(tid);
             return;
         default:
             add = 0;
@@ -271,7 +289,7 @@ void threadsFunction(char mission) {
     pthread_mutex_unlock(&jobQueueLock);
 }
 
-void printCountToFile() {
+void printCountToFile(int i) {
     char line[256];
     int tid;
     tid = (int) pthread_self();
@@ -332,5 +350,35 @@ QNode *deQueue(Queue *q) {
 }
 
 void onExit(void) {
-    puts ("Exit function 1.");
+    if (pthread_mutex_destroy(&counterLock) != 0) {
+        perror(MUTEX_DESTROY_ERROR);
+        exit(EXIT_FAILURE);
+    }
+    if (pthread_mutex_destroy(&jobQueueLock) != 0) {
+        perror(MUTEX_DESTROY_ERROR);
+        exit(EXIT_FAILURE);
+    }
+    if (semctl(semidRead, 0, IPC_RMID, semarg) != 0) {
+        perror(SEMAPHORE_REMOVE_ERROR);
+        exit(EXIT_FAILURE);
+    }
+    if ( semctl(semidWrite, 0, IPC_RMID, semarg) != 0) {
+        perror(SEMAPHORE_REMOVE_ERROR);
+        exit(EXIT_FAILURE);
+    }
+    /* remove the shared memory */
+    if (shmctl(shmid, IPC_RMID, NULL) == -1) {
+        perror(SHMCTL_ERROR);
+        exit(EXIT_FAILURE);
+    }
+    clearQueue(jobQueue);
+}
+
+void clearQueue(Queue *q) {
+    while (q->front != NULL) {
+        // Store previous front and move front one node ahead
+        QNode *temp = q->front;
+        q->front = q->front->next;
+        free(temp);
+    }
 }
