@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     /* create a value for semaphor */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'n');
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'M');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
 
     /* create a value for semaphor */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", '8');
+    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'U');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
