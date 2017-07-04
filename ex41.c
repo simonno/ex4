@@ -13,11 +13,11 @@
 
 #define SHM_SIZE 256
 #define SENGET_FLAGS (0644 | IPC_CREAT)
-#define FTOK_ERROR "ftok error"
-#define SHMGET_ERROR "shmget error"
-#define SHMAT_ERROR "shmat error - error in attaching to the shared memory."
+#define FTOK_ERROR "ftok error.\n"
+#define SHMGET_ERROR "shmget error.\n"
+#define SHMAT_ERROR "shmat error - error in attaching to the shared memory.\n"
 #define SEMGET_ERROR "semget error.\n"
-
+#define SEMOP_ERROR "semop error.\n"
 
 char toLower(char chr);
 
@@ -29,6 +29,12 @@ union semun {
 };
 union semun semarg;
 
+/****************************************************************************
+* function name : main                                                      *
+* input :                                                                   *
+* output :                                                                  *
+* explanation :                                                             *
+****************************************************************************/
 int main(int argc, char *argv[]) {
     char requestCode;
     int shmid;
@@ -58,9 +64,9 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    /* create a value for semaphor */
-    // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'M');
+    /* create a value for semaphore */
+    // /home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/
+    key = ftok("208388850.txt", 'a');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
@@ -71,9 +77,9 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    /* create a value for semaphor */
-    // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'U');
+    /* create a value for semaphore */
+    // /home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/
+    key = ftok("208388850.txt", '6');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
@@ -84,10 +90,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-//    semarg.val = 0;
-//    semctl(semidRead, 0, IPC_SET, semarg);
-//    semarg.val = 0;
-//    semctl(semidWrite, 0, IPC_SET, semarg);
     sb.sem_num = 0;
     sb.sem_flg = SEM_UNDO;
     char dummay;
@@ -102,13 +104,25 @@ int main(int argc, char *argv[]) {
         requestCode = toLower(requestCode);
 
         sb.sem_op = -1;
-        semop(semidWrite, &sb, 1);
+        if (semop(semidWrite, &sb, 1) == -1) {
+            perror(SEMOP_ERROR);
+            exit(EXIT_FAILURE);
+        }
         *data = requestCode;
         sb.sem_op = 1;
-        semop(semidRead, &sb, 1);
+        if (semop(semidRead, &sb, 1) == -1) {
+            perror(SEMOP_ERROR);
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
+/****************************************************************************
+* function name : toLower                                                   *
+* input : char to convert to lower case                                     *
+* output : the lower case char                                              *
+* explanation : covert upper case char to lower case                        *
+****************************************************************************/
 char toLower(char chr) {
     if (chr >='A' && chr<='Z') {
         return (char) (chr + 32);
