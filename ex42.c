@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
 
     /* create a value for sheared memory */
     // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'N');
+    key = ftok("208388850.txt", 'N');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
@@ -118,7 +118,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
     /* create a key for semaphore */
-    // /home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/
     key = ftok("208388850.txt", 'a');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
@@ -136,7 +135,6 @@ int main(int argc, char *argv[]) {
     }
 
     /* create a key for semaphore */
-    // /home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/
     key = ftok("208388850.txt", '6');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
@@ -374,7 +372,7 @@ void printCountToFile(unsigned long int tid) {
     // print to the file.
     sprintf(line, "thread identifier is %lu and internal_count is %d\n", tid, counter);
     pthread_mutex_lock(&printLock);
-    err = write(fd, line, sizeof(line));
+    err = write(fd, line, strlen(line));
     pthread_mutex_unlock(&printLock);
 
     // check for errors.

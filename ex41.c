@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <errno.h>
 
 
 #define SHM_SIZE 256
@@ -43,8 +44,7 @@ int main(int argc, char *argv[]) {
     struct sembuf sb;
 
     /* create a value for sheared memory */
-    // /home/noam/ClionProjects/OperationSystem/ex3/cmake-build-debug/
-    key = ftok("/home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/208388850.txt", 'N');
+    key = ftok("208388850.txt", 'N');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
         exit(EXIT_FAILURE);
@@ -65,7 +65,6 @@ int main(int argc, char *argv[]) {
     }
 
     /* create a value for semaphore */
-    // /home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/
     key = ftok("208388850.txt", 'a');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
@@ -78,7 +77,6 @@ int main(int argc, char *argv[]) {
     }
 
     /* create a value for semaphore */
-    // /home/noam/ClionProjects/OperationSystem/ex4---os/cmake-build-debug/
     key = ftok("208388850.txt", '6');
     if (key == (key_t) -1) {
         perror(FTOK_ERROR);
@@ -105,12 +103,19 @@ int main(int argc, char *argv[]) {
 
         sb.sem_op = -1;
         if (semop(semidWrite, &sb, 1) == -1) {
+            if (errno == 22 || errno == 43) {
+                exit(EXIT_SUCCESS);
+            }
             perror(SEMOP_ERROR);
             exit(EXIT_FAILURE);
         }
+        //write the job to shared memory
         *data = requestCode;
         sb.sem_op = 1;
         if (semop(semidRead, &sb, 1) == -1) {
+            if (errno == 22 || errno == 43) {
+                exit(EXIT_SUCCESS);
+            }
             perror(SEMOP_ERROR);
             exit(EXIT_FAILURE);
         }
